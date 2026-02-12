@@ -1,12 +1,11 @@
 # Softmove : Blender Accessibility Addon 4.2 LTS to 3.6 LTS
 
-Je mettrai le  logo ici 
+<img width="2235" height="1316" alt="logo-soft-move" src="https://github.com/user-attachments/assets/10e2f59b-c386-4d72-a8fd-1a871fd463d7" />
 
 **Softmove** est un addon pour **Blender** conçu pour aider les artistes souffrant de **handicaps moteurs** (tremblements, Parkinson, dyspraxie) à modéliser en 3D avec précision.
 Celui ci a pour but de modifier le curseur dans la vue 3d, pour le remplacer par un curseur anti-tremblement avec une aim assist et un systeme de preseletion.
 
-je mettrai la demo ici 
-
+https://github.com/user-attachments/assets/6fe61c5c-86ea-44c4-9212-694cf5f8028a
 
 ## Le Problème
 Dans Blender, la sélection d'un Vertex demande une precision surtout dans les zones dense.
@@ -22,8 +21,8 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 2. **Une Zone de sélecion :** Zone permettant de sélectionnés.
 3. **Curseur originel:** Vrai position de la souris (a un effet de laisse/élasticité avec la zone de tolérence).
 
-Image du curseur a mettre ici 
-
+ <img width="311" height="312" alt="Capture d&#39;écran 2026-02-12 235938" src="https://github.com/user-attachments/assets/49d94f85-a41a-4650-9abf-e0d42a424099" />
+ 
 ## Les fonctionalité Clés
 
 * ** Moyenne glissante :** permet de filtrer les mouvement dans un nombre de frame. (filtre meme les plus gros tremblement)
@@ -43,7 +42,7 @@ Image du curseur a mettre ici
 * **Friction :** Augmentez-la pour que le curseur ralentisse  plus sur les objets 3D.
 * **Lissage :** Nombre de frames pour calculer la moyenne (plus haut = plus fluide mais plus de latence).
 
-image du menu a mettre ici
+<img width="239" height="598" alt="menu" src="https://github.com/user-attachments/assets/a3157c00-03de-4fbb-874b-b6bb59e88b63" />
 
 ##Architecture et librairie 
 * ** gpu :** Pour déssiné le curseur ainsi que la préselection dans le viewport 3D.
