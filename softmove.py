@@ -26,18 +26,36 @@ class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
         active = getattr(wm, "anti_tremble_active", False)
         
         col = layout.column(align=True)
-        col.prop(scene, "anti_tremblement_radius", text="Rayon (Physique)")
-        col.prop(scene, "anti_tremblement_offset", text="Offset (Sélection)")
+        col.label(text="  Tailles:")
+        col.prop(scene, "anti_tremblement_radius", text="Zone de tolérence")
+        col.prop(scene, "anti_tremblement_offset", text="Zone de sélection")
+        col.prop(scene, "anti_tremble_cursor_size", text="Curseur")
+       
+        layout.separator()
+        
+        col = layout.column(align=True)
+    
+         
+        col.label(text="Vitesse :")
         col.prop(scene, "anti_tremblement_sensitivity", text="Sensibilité")
         col.prop(scene, "anti_tremblement_friction", text="Friction (Cible)")
         col.prop(scene, "anti_tremblement_samples", text="Lissage (Frames)")
         
         layout.separator()
         
-        # --- 3 COULEURS MAINTENANT ---
-        col.prop(scene, "anti_tremble_color_cursor", text="Curseur (Orange)")
-        col.prop(scene, "anti_tremble_color_line", text="Cercle (Trait)")
-        col.prop(scene, "anti_tremble_color_select", text="Sélection (Mesh)")
+        # --- NOUVEAUX RÉGLAGES VISUELS ---
+        col = layout.column(align=True)
+        col.label(text="Épaisseur :")
+
+        col.prop(scene, "anti_tremble_line_width", text="Trait")
+        
+        layout.separator()
+        
+        # --- COULEURS ---
+        col = layout.column(align=True)
+        col.prop(scene, "anti_tremble_color_cursor", text="Curseur")
+        col.prop(scene, "anti_tremble_color_line", text="Zone de sélection")
+        col.prop(scene, "anti_tremble_color_select", text="Preview")
         
         layout.separator()
         
@@ -82,50 +100,52 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             radius_phys = scene.anti_tremblement_radius
             radius_sel = max(1, radius_phys + scene.anti_tremblement_offset)
             
-            # Récupération des 3 couleurs
+            # Récupération des couleurs
             col_cursor = scene.anti_tremble_color_cursor
             col_line = scene.anti_tremble_color_line
-            col_select = scene.anti_tremble_color_select # Nouvelle couleur
+            col_select = scene.anti_tremble_color_select
+            
+            # Récupération des tailles
+            size_cursor = scene.anti_tremble_cursor_size
+            width_line = scene.anti_tremble_line_width
             
             shader = gpu.shader.from_builtin('UNIFORM_COLOR')
             shader.bind()
             gpu.state.blend_set('ALPHA')
             
-            # 1. Point Orange (Curseur virtuel)
+            # 1. Point (Curseur virtuel) - Taille dynamique
             batch_pt = batch_for_shader(shader, 'POINTS', {"pos": [self.virtual_pos]})
             shader.uniform_float("color", (col_cursor[0], col_cursor[1], col_cursor[2], 1)) 
-            gpu.state.point_size_set(7)
+            gpu.state.point_size_set(size_cursor) # <--- ICI
             batch_pt.draw(shader)
 
-            # 2. Cercle Blanc (Fixe, physique)
+            # 2. Cercle Blanc (Fixe) - Épaisseur dynamique
             res = 32
             points_p = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_phys, 
                          self.circle_pos[1] + math.sin(6.283*i/res)*radius_phys) for i in range(res)]
             batch_p = batch_for_shader(shader, 'LINE_LOOP', {"pos": points_p})
             shader.uniform_float("color", (1, 1, 1, 0.2))
-            gpu.state.line_width_set(1.5)
+            gpu.state.line_width_set(width_line) # <--- ICI
             batch_p.draw(shader)
 
-            # 2b. Cercle de détection (Trait mouvant)
+            # 2b. Cercle de détection (Trait) - Épaisseur dynamique
             points_s = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_sel, 
                          self.circle_pos[1] + math.sin(6.283*i/res)*radius_sel) for i in range(res)]
             batch_s = batch_for_shader(shader, 'LINE_LOOP', {"pos": points_s})
-            # Utilise "Couleur Trait"
             shader.uniform_float("color", (col_line[0], col_line[1], col_line[2], 0.6))
-            gpu.state.line_width_set(1.5)
+            gpu.state.line_width_set(width_line) # <--- ICI
             batch_s.draw(shader)
 
-            # 3. Outline Sélection (Sur le mesh)
+            # 3. Outline Sélection (Sur le mesh) - On le met un peu plus gros que le trait normal (x2 par exemple ou fixe)
             if self.morph_data:
                 draw_mode = 'LINE_LOOP' if self.current_mode == 'FACE' else 'LINES'
                 if self.current_mode == 'VERT':
-                    gpu.state.point_size_set(12)
+                    gpu.state.point_size_set(size_cursor + 4) # Un peu plus gros que le curseur
                     draw_mode = 'POINTS'
                 batch_morph = batch_for_shader(shader, draw_mode, {"pos": self.morph_data})
                 
-                # Utilise la NOUVELLE "Couleur Sélection"
                 shader.uniform_float("color", (col_select[0], col_select[1], col_select[2], 1))
-                gpu.state.line_width_set(4.0)
+                gpu.state.line_width_set(width_line + 2) # Un peu plus épais que les cercles
                 batch_morph.draw(shader)
         except: pass
 
@@ -349,6 +369,10 @@ def register():
     bpy.types.Scene.anti_tremblement_friction = bpy.props.FloatProperty(name="Friction", default=0.75, min=0.01, max=1.0)
     bpy.types.Scene.anti_tremblement_samples = bpy.props.IntProperty(name="Lissage (Frames)", default=8, min=1, max=50)
     
+    # --- NOUVEAUX REGLAGES DE TAILLE ---
+    bpy.types.Scene.anti_tremble_cursor_size = bpy.props.IntProperty(name="Taille Curseur", default=7, min=1, max=30)
+    bpy.types.Scene.anti_tremble_line_width = bpy.props.IntProperty(name="Épaisseur Trait", default=2, min=1, max=6)
+    
     # --- 3 COULEURS ---
     bpy.types.Scene.anti_tremble_color_cursor = bpy.props.FloatVectorProperty(
         name="Couleur Curseur", subtype='COLOR', default=(1.0, 0.5, 0.0), min=0.0, max=1.0, size=3
@@ -384,9 +408,13 @@ def unregister():
     del bpy.types.Scene.anti_tremblement_sensitivity
     del bpy.types.Scene.anti_tremblement_friction
     del bpy.types.Scene.anti_tremblement_samples
+    
+    del bpy.types.Scene.anti_tremble_cursor_size # Nettoyage
+    del bpy.types.Scene.anti_tremble_line_width  # Nettoyage
+    
     del bpy.types.Scene.anti_tremble_color_cursor
     del bpy.types.Scene.anti_tremble_color_line
-    del bpy.types.Scene.anti_tremble_color_select # Nettoyage
+    del bpy.types.Scene.anti_tremble_color_select
     del bpy.types.WindowManager.anti_tremble_active
 
 if __name__ == "__main__":
