@@ -25,11 +25,11 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
  
 ## Les fonctionalité Clés
 
-* ** Moyenne glissante :** permet de filtrer les mouvement dans un nombre de frame. (filtre meme les plus gros tremblement)
-* ** Aim assist :** Le curseur ralenti quand on passe sur un objet 3D et sélection le vertice le plus prés. (le curseur comprend la 3D)
-* ** Pré-sélection :** le curseur met en surbriance les Vertices/Edge et Face en surbriance
+* **Moyenne glissante :** permet de filtrer les mouvement dans un nombre de frame. (filtre meme les plus gros tremblement)
+* **Aim assist :** Le curseur ralenti quand on passe sur un objet 3D et sélection le vertice le plus prés. (le curseur comprend la 3D)
+* **Pré-sélection :** le curseur met en surbriance les Vertices/Edge et Face en surbriance
   image de préselection a mettre plus tard
-* ** 100% customisable :** Rayons, vitesse, aim-assist , couleur etc.. (Via le paneau N)
+* **100% customisable :** Rayons, vitesse, aim-assist , couleur etc.. (Via le paneau N)
 
 ## Instalation 
 1.  Télecharger et extraire "softmove.py"
@@ -45,15 +45,15 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 <img width="239" height="598" alt="menu" src="https://github.com/user-attachments/assets/a3157c00-03de-4fbb-874b-b6bb59e88b63" />
 
 ##Architecture et librairie 
-* ** gpu :** Pour déssiné le curseur ainsi que la préselection dans le viewport 3D.
-* ** bmesh :** Pour avoir la topologie de l'objet sur le quel on est, et savoir ou sont les vertex et a quoi ils sont lié.
-* ** View3d_utils : ** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
+* **gpu :** Pour déssiné le curseur ainsi que la préselection dans le viewport 3D.
+* **bmesh :** Pour avoir la topologie de l'objet sur le quel on est, et savoir ou sont les vertex et a quoi ils sont lié.
+* **View3d_utils : ** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
 
 ## Future 
-** Ajout systeme pour lock un racourci.
-** Adapté toutles outil de blender au curseur.
-** Mettre la souris avec un systeme de morphing dans les menu.
-** Systeme pour changé la taille des menus et du texte.
+**Ajout systeme pour lock un racourci.
+**Adapté toutles outil de blender au curseur.
+**Mettre la souris avec un systeme de morphing dans les menu.
+**Systeme pour changé la taille des menus et du texte.
 
 > **Note de conception :**
 
