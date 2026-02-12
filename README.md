@@ -44,16 +44,16 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 
 <img width="239" height="598" alt="menu" src="https://github.com/user-attachments/assets/a3157c00-03de-4fbb-874b-b6bb59e88b63" />
 
-##Architecture et librairie 
+## Architecture et librairie 
 * **gpu :** Pour déssiné le curseur ainsi que la préselection dans le viewport 3D.
 * **bmesh :** Pour avoir la topologie de l'objet sur le quel on est, et savoir ou sont les vertex et a quoi ils sont lié.
 * **View3d_utils : ** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
 
 ## Future 
-**Ajout systeme pour lock un racourci.
-**Adapté toutles outil de blender au curseur.
-**Mettre la souris avec un systeme de morphing dans les menu.
-**Systeme pour changé la taille des menus et du texte.
+* **Ajout systeme pour lock un racourci.**
+* **Adapté toutles outil de blender au curseur.**
+* **Mettre la souris avec un systeme de morphing dans les menu.**
+* **Systeme pour changé la taille des menus et du texte.**
 
 > **Note de conception :**
 
