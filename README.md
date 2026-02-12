@@ -47,7 +47,7 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 ## Architecture et librairie 
 * **gpu :** Pour déssiné le curseur ainsi que la préselection dans le viewport 3D.
 * **bmesh :** Pour avoir la topologie de l'objet sur le quel on est, et savoir ou sont les vertex et a quoi ils sont lié.
-* **View3d_utils : ** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
+* **View3d_utils :** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
 
 ## Future 
 * **Ajout systeme pour lock un racourci.**
