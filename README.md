@@ -54,6 +54,7 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 * **Adapté toutles outil de blender au curseur.**
 * **Mettre la souris avec un systeme de morphing dans les menu.**
 * **Systeme pour changé la taille des menus et du texte.**
+* **Création d'un site web dédier à l'addon**
 
 > **Note de conception :**
 
