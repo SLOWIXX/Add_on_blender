@@ -7,7 +7,6 @@ from mathutils import Vector
 import math
 import time
 
-# Liste pour stocker les raccourcis et les supprimer proprement
 addon_keymaps = []
 
 # --- PROPRIÉTÉS ET INTERFACE ---
@@ -24,7 +23,6 @@ class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
         scene = context.scene
         wm = context.window_manager
         
-        # Sécurité pour éviter le crash si la propriété n'est pas encore enregistrée
         active = getattr(wm, "anti_tremble_active", False)
         
         col = layout.column(align=True)
@@ -33,6 +31,13 @@ class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
         col.prop(scene, "anti_tremblement_sensitivity", text="Sensibilité")
         col.prop(scene, "anti_tremblement_friction", text="Friction (Cible)")
         col.prop(scene, "anti_tremblement_samples", text="Lissage (Frames)")
+        
+        layout.separator()
+        
+        # --- 3 COULEURS MAINTENANT ---
+        col.prop(scene, "anti_tremble_color_cursor", text="Curseur (Orange)")
+        col.prop(scene, "anti_tremble_color_line", text="Cercle (Trait)")
+        col.prop(scene, "anti_tremble_color_select", text="Sélection (Mesh)")
         
         layout.separator()
         
@@ -47,7 +52,6 @@ class OT_AntiTremblementToggle(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        # Utilisation de getattr pour la sécurité
         if getattr(wm, "anti_tremble_active", False):
             wm.anti_tremble_active = False
         else:
@@ -70,8 +74,6 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
         self.dynamic_sens = 1.0 
         self.last_mode = 'OBJECT' 
         self.mode_cooldown = 0.0
-        
-        # Historique pour la moyenne glissante
         self.mouse_history = [] 
 
     def draw_callback(self, context):
@@ -80,18 +82,22 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             radius_phys = scene.anti_tremblement_radius
             radius_sel = max(1, radius_phys + scene.anti_tremblement_offset)
             
-            # Correction pour Blender 4.0+ ('UNIFORM_COLOR')
+            # Récupération des 3 couleurs
+            col_cursor = scene.anti_tremble_color_cursor
+            col_line = scene.anti_tremble_color_line
+            col_select = scene.anti_tremble_color_select # Nouvelle couleur
+            
             shader = gpu.shader.from_builtin('UNIFORM_COLOR')
             shader.bind()
             gpu.state.blend_set('ALPHA')
             
-            # 1. Point Orange
+            # 1. Point Orange (Curseur virtuel)
             batch_pt = batch_for_shader(shader, 'POINTS', {"pos": [self.virtual_pos]})
-            shader.uniform_float("color", (1, 0.5, 0, 1)) 
+            shader.uniform_float("color", (col_cursor[0], col_cursor[1], col_cursor[2], 1)) 
             gpu.state.point_size_set(7)
             batch_pt.draw(shader)
 
-            # 2. Cercle Blanc (Physique)
+            # 2. Cercle Blanc (Fixe, physique)
             res = 32
             points_p = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_phys, 
                          self.circle_pos[1] + math.sin(6.283*i/res)*radius_phys) for i in range(res)]
@@ -100,22 +106,25 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             gpu.state.line_width_set(1.5)
             batch_p.draw(shader)
 
-            # 2b. Cercle Bleu (Sélection)
+            # 2b. Cercle de détection (Trait mouvant)
             points_s = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_sel, 
                          self.circle_pos[1] + math.sin(6.283*i/res)*radius_sel) for i in range(res)]
             batch_s = batch_for_shader(shader, 'LINE_LOOP', {"pos": points_s})
-            shader.uniform_float("color", (0, 0.6, 1, 0.6))
+            # Utilise "Couleur Trait"
+            shader.uniform_float("color", (col_line[0], col_line[1], col_line[2], 0.6))
             gpu.state.line_width_set(1.5)
             batch_s.draw(shader)
 
-            # 3. Outline Sélection
+            # 3. Outline Sélection (Sur le mesh)
             if self.morph_data:
                 draw_mode = 'LINE_LOOP' if self.current_mode == 'FACE' else 'LINES'
                 if self.current_mode == 'VERT':
                     gpu.state.point_size_set(12)
                     draw_mode = 'POINTS'
                 batch_morph = batch_for_shader(shader, draw_mode, {"pos": self.morph_data})
-                shader.uniform_float("color", (0, 1, 1, 1))
+                
+                # Utilise la NOUVELLE "Couleur Sélection"
+                shader.uniform_float("color", (col_select[0], col_select[1], col_select[2], 1))
                 gpu.state.line_width_set(4.0)
                 batch_morph.draw(shader)
         except: pass
@@ -206,19 +215,14 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
 
         context.area.tag_redraw()
 
-        # --- DÉTECTION GÉOMÉTRIQUE DE L'INTERFACE (MENUS EXTÉRIEURS & INTÉRIEURS) ---
         is_over_ui = False
-        
-        # 1. On check si on est sorti de la fenêtre 3D (Properties, Timeline, Outliner...)
         area = context.area
         if not (area.x <= event.mouse_x <= area.x + area.width and 
                 area.y <= event.mouse_y <= area.y + area.height):
             is_over_ui = True
         
-        # 2. On check les menus internes (Header, Footer, N-Panel, T-Shelf)
         if not is_over_ui:
             for region in area.regions:
-                # Si la région n'est pas la fenêtre principale (WINDOW), c'est de l'UI
                 if region.type != 'WINDOW': 
                     if (region.x <= event.mouse_x <= region.x + region.width) and \
                        (region.y <= event.mouse_y <= region.y + region.height):
@@ -226,40 +230,21 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
                         break
         
         if is_over_ui:
-            # 1. On rend le curseur
             context.window.cursor_set('DEFAULT')
-            
-            # 2. Sync position pour éviter le saut
-            # On utilise les coordonnées souris globales (event.mouse_x) converties en locales si possible
-            # Mais ici, pour le visuel, on triche en mettant le curseur virtuel sur la souris actuelle
-            # (Note: mouse_region_x est instable hors region, mais pour l'affichage HUD c'est un moindre mal pour la continuité)
-            # L'important est surtout de vider l'historique.
-            
-            # Pour éviter des bugs de coordonnées bizarres hors fenêtre, on peut juste stopper l'update visuelle ou 
-            # accepter que le point suive la souris système.
-            
-            # Le plus sûr pour éviter le freeze au retour : 
             self.mouse_history = [] 
-            
-            # On essaye de garder le point sous la souris, mais si les coordonnées déconnent, ce n'est pas grave
-            # car l'historique est vide, donc ça se recalera frame 1 au retour.
             try:
                 current_mouse = Vector((event.mouse_region_x, event.mouse_region_y))
                 self.virtual_pos = current_mouse.copy()
                 self.circle_pos = current_mouse.copy()
             except: pass
-
             return {'PASS_THROUGH'}
         else:
             context.window.cursor_set('NONE')
 
-        # --- SUITE DU CODE ---
-
         if event.value == 'PRESS' and event.type not in {'LEFTMOUSE', 'MIDDLEMOUSE', 'RIGHTMOUSE'}:
-            # On laisse passer F5 pour qu'il puisse désactiver l'outil !
             if event.type == 'F5':
                 return {'PASS_THROUGH'}
-            return {'PASS_THROUGH'} # On laisse passer les autres touches aussi au cas où
+            return {'PASS_THROUGH'}
 
         if event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE', 'TRACKPADPAN', 'TRACKPADZOOM'}:
             return {'PASS_THROUGH'}
@@ -290,7 +275,6 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             else:
                 target_pos = raw_mouse
 
-            # --- INERTIE ---
             delta = target_pos - self.virtual_pos 
             
             if delta.length > 300: 
@@ -308,12 +292,10 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             win_y = int(self.virtual_pos.y) + (event.mouse_y - event.mouse_region_y)
             context.window.cursor_warp(win_x, win_y)
 
-            # Drag Radius
             diff = self.virtual_pos - self.circle_pos
             if diff.length > context.scene.anti_tremblement_radius:
                 self.circle_pos += diff.normalized() * (diff.length - context.scene.anti_tremblement_radius)
             
-            # Drift
             self.circle_pos += (self.virtual_pos - self.circle_pos) * 0.05
             
             return {'RUNNING_MODAL'}
@@ -366,12 +348,23 @@ def register():
     bpy.types.Scene.anti_tremblement_sensitivity = bpy.props.FloatProperty(name="Sensibilité", default=1.0, min=0.01, max=1.0)
     bpy.types.Scene.anti_tremblement_friction = bpy.props.FloatProperty(name="Friction", default=0.75, min=0.01, max=1.0)
     bpy.types.Scene.anti_tremblement_samples = bpy.props.IntProperty(name="Lissage (Frames)", default=8, min=1, max=50)
+    
+    # --- 3 COULEURS ---
+    bpy.types.Scene.anti_tremble_color_cursor = bpy.props.FloatVectorProperty(
+        name="Couleur Curseur", subtype='COLOR', default=(1.0, 0.5, 0.0), min=0.0, max=1.0, size=3
+    )
+    bpy.types.Scene.anti_tremble_color_line = bpy.props.FloatVectorProperty(
+        name="Couleur Trait", subtype='COLOR', default=(0.0, 0.6, 1.0), min=0.0, max=1.0, size=3
+    )
+    bpy.types.Scene.anti_tremble_color_select = bpy.props.FloatVectorProperty(
+        name="Couleur Sélection", subtype='COLOR', default=(0.0, 1.0, 1.0), min=0.0, max=1.0, size=3
+    )
+    
     bpy.types.WindowManager.anti_tremble_active = bpy.props.BoolProperty(default=False)
     
     for cls in classes:
         bpy.utils.register_class(cls)
         
-    # --- CONFIGURATION RACCOURCI (F5) ---
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
     if kc:
@@ -380,7 +373,6 @@ def register():
         addon_keymaps.append((km, kmi))
 
 def unregister():
-    # --- NETTOYAGE RACCOURCI ---
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
     addon_keymaps.clear()
@@ -392,6 +384,9 @@ def unregister():
     del bpy.types.Scene.anti_tremblement_sensitivity
     del bpy.types.Scene.anti_tremblement_friction
     del bpy.types.Scene.anti_tremblement_samples
+    del bpy.types.Scene.anti_tremble_color_cursor
+    del bpy.types.Scene.anti_tremble_color_line
+    del bpy.types.Scene.anti_tremble_color_select # Nettoyage
     del bpy.types.WindowManager.anti_tremble_active
 
 if __name__ == "__main__":
