@@ -9,7 +9,7 @@ import time
 
 addon_keymaps = []
 
-# --- PROPRIÉTÉS ET INTERFACE ---
+
 
 class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
     bl_label = "Softmove"
@@ -28,8 +28,8 @@ class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
         col = layout.column(align=True)
         col.label(text="  Tailles:")
         
-        col.prop(scene, "anti_tremblement_radius", text="Zone de tolérence")
-        col.prop(scene, "anti_tremblement_offset", text="Zone de sélection")
+        col.prop(scene, "anti_tremblement_radius", text="Zone de tolérance (Lissage)")
+        col.prop(scene, "anti_tremblement_selection_radius", text="Zone de sélection (Rayon)")
         col.prop(scene, "anti_tremble_cursor_size", text="Curseur")
         
         layout.separator()
@@ -50,7 +50,7 @@ class VIEW3D_PT_AntiTremblement(bpy.types.Panel):
         layout.separator()
         
         col = layout.column(align=True)
-        col.prop(scene, "anti_tremble_show_radius", text="Afficher Zone de tolérence")
+        col.prop(scene, "anti_tremble_show_radius", text="Afficher Zone de tolérance")
         
         layout.separator()
         
@@ -87,7 +87,7 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
         self.circle_pos = Vector((0, 0))
         self.handle = None
         self.first_run = True
-        self.morph_data = [] 
+        self.morph_data_3d = [] 
         self.target_idx = -1
         self.target_obj = None
         self.current_mode = 'FACE'
@@ -100,7 +100,7 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
         try:
             scene = context.scene
             radius_phys = scene.anti_tremblement_radius
-            radius_sel = max(1, radius_phys + scene.anti_tremblement_offset)
+            radius_sel = scene.anti_tremblement_selection_radius
             
             col_cursor = scene.anti_tremble_color_cursor
             col_line = scene.anti_tremble_color_line
@@ -113,14 +113,10 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             shader.bind()
             gpu.state.blend_set('ALPHA')
             
-            # --- MODIFICATION ICI : On dessine un disque (TRI_FAN) au lieu d'un point carré ---
             
-            # Création de la géométrie du rond curseur
             res_cursor = 16
-            # On divise la taille par 2 car size_cursor était un diamètre en pixels pour le point carré
             rad_cursor = size_cursor * 0.5 
             
-            # TRI_FAN : Le premier point est le centre
             points_cursor = [self.virtual_pos] 
             for i in range(res_cursor + 1):
                 ang = 2 * math.pi * i / res_cursor
@@ -129,9 +125,8 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             batch_pt = batch_for_shader(shader, 'TRI_FAN', {"pos": points_cursor})
             shader.uniform_float("color", (col_cursor[0], col_cursor[1], col_cursor[2], 1)) 
             batch_pt.draw(shader)
-            # --------------------------------------------------------------------------------
 
-            # 2. Cercle Blanc (Fixe)
+            
             if scene.anti_tremble_show_radius:
                 res = 32
                 points_p = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_phys, 
@@ -141,7 +136,7 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
                 gpu.state.line_width_set(width_line)
                 batch_p.draw(shader)
 
-            # 2b. Cercle de détection (Trait)
+           
             res = 32 
             points_s = [(self.circle_pos[0] + math.cos(6.283*i/res)*radius_sel, 
                          self.circle_pos[1] + math.sin(6.283*i/res)*radius_sel) for i in range(res)]
@@ -150,17 +145,29 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             gpu.state.line_width_set(width_line)
             batch_s.draw(shader)
 
-            # 3. Outline Sélection (Sur le mesh)
-            if self.morph_data:
-                draw_mode = 'LINE_LOOP' if self.current_mode == 'FACE' else 'LINES'
-                if self.current_mode == 'VERT':
-                    gpu.state.point_size_set(size_cursor + 4)
-                    draw_mode = 'POINTS'
-                batch_morph = batch_for_shader(shader, draw_mode, {"pos": self.morph_data})
+            
+            if self.morph_data_3d and self.target_obj:
+                region = context.region
+                rv3d = context.space_data.region_3d
+                matrix = self.target_obj.matrix_world
                 
-                shader.uniform_float("color", (col_select[0], col_select[1], col_select[2], 1))
-                gpu.state.line_width_set(width_line + 2)
-                batch_morph.draw(shader)
+                points_2d = []
+                for pt3d in self.morph_data_3d:
+                    world_loc = matrix @ pt3d
+                    screen_loc = view3d_utils.location_3d_to_region_2d(region, rv3d, world_loc)
+                    if screen_loc:
+                        points_2d.append((screen_loc.x, screen_loc.y))
+                
+                if points_2d:
+                    draw_mode = 'LINE_LOOP' if self.current_mode == 'FACE' else 'LINES'
+                    if self.current_mode == 'VERT':
+                        gpu.state.point_size_set(size_cursor + 4)
+                        draw_mode = 'POINTS'
+                    
+                    batch_morph = batch_for_shader(shader, draw_mode, {"pos": points_2d})
+                    shader.uniform_float("color", (col_select[0], col_select[1], col_select[2], 1))
+                    gpu.state.line_width_set(width_line + 2)
+                    batch_morph.draw(shader)
         except: pass
 
     def update_logic(self, context):
@@ -168,14 +175,15 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
         if context.mode != self.last_mode:
             self.last_mode = context.mode
             self.mode_cooldown = current_time + 0.2
-            self.morph_data = []
+            self.morph_data_3d = []
             self.target_obj = None
             return
         if current_time < self.mode_cooldown: return
 
-        self.morph_data = []
+        self.morph_data_3d = []
         self.target_idx = -1
-        radius_sel = max(1, context.scene.anti_tremblement_radius + context.scene.anti_tremblement_offset)
+        
+        radius_sel = context.scene.anti_tremblement_selection_radius
         
         sel_mode = context.tool_settings.mesh_select_mode
         self.current_mode = 'VERT' if sel_mode[0] else 'EDGE' if sel_mode[1] else 'FACE'
@@ -216,20 +224,23 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             bm.faces.ensure_lookup_table()
             if face_idx < len(bm.faces):
                 matrix = self.target_obj.matrix_world
+                
                 if self.current_mode == 'VERT':
                     best_v = min(bm.faces[face_idx].verts, key=lambda v: (view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ v.co) - self.circle_pos).length)
-                    p2d = view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ best_v.co)
-                    self.target_idx, self.morph_data = best_v.index, [(p2d.x, p2d.y)]
+                    self.target_idx = best_v.index
+                    self.morph_data_3d = [best_v.co.copy()]
+                    
                 elif self.current_mode == 'EDGE':
                     best_e = min(bm.faces[face_idx].edges, key=lambda e: (((view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ e.verts[0].co) + view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ e.verts[1].co))/2) - self.circle_pos).length)
-                    v1 = view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ best_e.verts[0].co)
-                    v2 = view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ best_e.verts[1].co)
-                    self.target_idx, self.morph_data = best_e.index, [(v1.x, v1.y), (v2.x, v2.y)]
-                else:
+                    self.target_idx = best_e.index
+                    self.morph_data_3d = [best_e.verts[0].co.copy(), best_e.verts[1].co.copy()]
+                    
+                else: 
                     self.target_idx = face_idx
-                    self.morph_data = [(p.x, p.y) for v in bm.faces[face_idx].verts if (p := view3d_utils.location_3d_to_region_2d(region, rv3d, matrix @ v.co))]
+                    self.morph_data_3d = [v.co.copy() for v in bm.faces[face_idx].verts]
+                    
         except:
-            self.morph_data = []
+            self.morph_data_3d = []
             self.target_idx = -1
         finally:
             if bm and not is_edit_mode: bm.free()
@@ -334,8 +345,10 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             
             return {'RUNNING_MODAL'}
 
+        # GESTION DU CLIC
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             if time.time() < self.mode_cooldown: return {'PASS_THROUGH'}
+            
             if self.target_obj and self.target_idx != -1:
                 try:
                     if context.mode == 'EDIT_MESH':
@@ -356,7 +369,16 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
                         self.target_obj.select_set(True)
                         context.view_layer.objects.active = self.target_obj
                 except: pass
-            return {'RUNNING_MODAL'}
+                return {'RUNNING_MODAL'}
+            
+            else:
+                try:
+                    if context.mode == 'EDIT_MESH':
+                        bpy.ops.mesh.select_all(action='DESELECT')
+                    else:
+                        bpy.ops.object.select_all(action='DESELECT')
+                except: pass
+                return {'RUNNING_MODAL'}
 
         return {'PASS_THROUGH'}
 
@@ -368,7 +390,7 @@ class OT_AntiTremblementMorph(bpy.types.Operator):
             return {'RUNNING_MODAL'}
         return {'CANCELLED'}
 
-# --- REGISTRATION ---
+
 
 classes = (
     VIEW3D_PT_AntiTremblement,
@@ -378,21 +400,19 @@ classes = (
 
 def register():
     bpy.types.Scene.anti_tremblement_radius = bpy.props.IntProperty(name="Rayon", default=30, min=5, max=300)
-    bpy.types.Scene.anti_tremblement_offset = bpy.props.IntProperty(name="Offset", default=-20, min=-100, max=100)
-    bpy.types.Scene.anti_tremblement_sensitivity = bpy.props.FloatProperty(name="Sensibilité", default=1.0, min=0.01, max=1.0)
+    bpy.types.Scene.anti_tremblement_selection_radius = bpy.props.IntProperty(name="Rayon Sélection", default=10, min=1, max=300)
+    
+    bpy.types.Scene.anti_tremblement_sensitivity = bpy.props.FloatProperty(name="Sensibilité", default=1.0, min=0.01, max=10.0)
     bpy.types.Scene.anti_tremblement_friction = bpy.props.FloatProperty(name="Friction", default=0.75, min=0.01, max=1.0)
     bpy.types.Scene.anti_tremblement_samples = bpy.props.IntProperty(name="Lissage (Frames)", default=8, min=1, max=50)
     
-    # --- BOOL ---
     bpy.types.Scene.anti_tremble_show_radius = bpy.props.BoolProperty(
         name="Afficher Cercle Blanc", default=True
     )
     
-    # --- TAILLES ---
-    bpy.types.Scene.anti_tremble_cursor_size = bpy.props.IntProperty(name="Taille Curseur", default=15, min=5, max=100) # Augmenté la défaut pour que le rond soit visible
+    bpy.types.Scene.anti_tremble_cursor_size = bpy.props.IntProperty(name="Taille Curseur", default=5, min=5, max=100)
     bpy.types.Scene.anti_tremble_line_width = bpy.props.IntProperty(name="Épaisseur Trait", default=2, min=1, max=6)
     
-    # --- COULEURS ---
     bpy.types.Scene.anti_tremble_color_cursor = bpy.props.FloatVectorProperty(
         name="Couleur Curseur", subtype='COLOR', default=(1.0, 0.5, 0.0), min=0.0, max=1.0, size=3
     )
@@ -423,7 +443,7 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.anti_tremblement_radius
-    del bpy.types.Scene.anti_tremblement_offset
+    del bpy.types.Scene.anti_tremblement_selection_radius
     del bpy.types.Scene.anti_tremblement_sensitivity
     del bpy.types.Scene.anti_tremblement_friction
     del bpy.types.Scene.anti_tremblement_samples
