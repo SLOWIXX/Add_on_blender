@@ -49,6 +49,12 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 * ** bmesh :** Pour avoir la topologie de l'objet sur le quel on est, et savoir ou sont les vertex et a quoi ils sont lié.
 * ** View3d_utils : ** Pour projeter de la 3d à la 2d et inversement de façon ultra simple.
 
+## Future 
+** Ajout systeme pour lock un racourci.
+** Adapté toutles outil de blender au curseur.
+** Mettre la souris avec un systeme de morphing dans les menu.
+** Systeme pour changé la taille des menus et du texte.
+
 > **Note de conception :**
 
 Premièrement, on a identifié un problème : Blender demande beaucoup de précision dans son utilisation, même pour des utilisateurs non handicapés, ça peut arriver de sélectionner les mauvais vertices. 
