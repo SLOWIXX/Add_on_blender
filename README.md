@@ -3,7 +3,7 @@
 <img width="2235" height="1316" alt="logo-soft-move" src="https://github.com/user-attachments/assets/10e2f59b-c386-4d72-a8fd-1a871fd463d7" />
 
 **Softmove** est un addon pour **Blender** conçu pour aider les artistes souffrant de **handicaps moteurs** (tremblements, Parkinson, dyspraxie) à modéliser en 3D avec précision.
-Celui ci a pour but de modifier le curseur dans la vue 3d, pour le remplacer par un curseur anti-tremblement avec une aim assist et un systeme de preseletion.
+Celui ci a pour but de modifier le curseur dans la vue 3d, pour le remplacer par un curseur anti-tremblement avec une aim assist et un system de pré-seletion.
 
 https://github.com/user-attachments/assets/6fe61c5c-86ea-44c4-9212-694cf5f8028a
 
@@ -28,7 +28,8 @@ Séparer l'intention du mouvement de l'utilisateur, des mouvement non voulu grac
 * **Moyenne glissante :** permet de filtrer les mouvement dans un nombre de frame. (filtre meme les plus gros tremblement)
 * **Aim assist :** Le curseur ralenti quand on passe sur un objet 3D et sélection le vertice le plus prés. (le curseur comprend la 3D)
 * **Pré-sélection :** le curseur met en surbriance les Vertices/Edge et Face en surbriance
-  image de préselection a mettre plus tard
+
+  
 * **100% customisable :** Rayons, vitesse, aim-assist , couleur etc.. (Via le paneau N)
 
 ## Instalation 
